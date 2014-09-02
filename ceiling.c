@@ -13,8 +13,7 @@
 
 #include "periodic_tasks.h"
 #include "dispositivos.h"
-
-
+ 
 static pthread_mutex_t mutexLuz;
 static pthread_mutex_t mutexPot;
 static pthread_mutex_t mutexTemp;
@@ -28,6 +27,12 @@ int peligro_luz;
 
 #define TRUE 1
 #define FALSE 0
+
+
+#define PRINT_TIME 0
+#define PRINT_TIME_MUTEX_SINGLE  0
+#define PRINT_TIME_MUTEX_TCOMM 	 0
+#define PRINT_TIME_MUTEX_TRIESGO 1
 
 /* periodic threads */
 
@@ -90,53 +95,144 @@ void *thread_COMM(void *param)
 
 void t1_LecFotometro(void)
 {
+#if PRINT_TIME
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
+
     // CUERPO DE LA TAREAS 
 
 	pthread_mutex_lock(&mutexLuz);
+#if PRINT_TIME_MUTEX_SINGLE
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	luz_ADC=analogRead(0);
+#if PRINT_TIME_MUTEX_SINGLE
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora LecFotometro mutexLuz: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexLuz);
+
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t1_LecFotometro: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif	
 }
 
 void t2_LecPotenciometro(void)
 {
+#if PRINT_TIME
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
     // CUERPO DE LA TAREAS
 
 	pthread_mutex_lock(&mutexPot);
+#if PRINT_TIME_MUTEX_SINGLE
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	pot_ADC=analogRead(1);
-	pthread_mutex_unlock(&mutexPot); 
+#if PRINT_TIME_MUTEX_SINGLE
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora LecPotenciometro mutexPot: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
+	pthread_mutex_unlock(&mutexPot);
+ 
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t2_LecPotenciometro: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
  
 }
 
 void t3_LecTemperatura(void)
 {
+#if PRINT_TIME
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
+
 	pthread_mutex_lock(&mutexTemp);
+#if PRINT_TIME_MUTEX_SINGLE
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	temperatura=analogRead(2);
+#if PRINT_TIME_MUTEX_SINGLE
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora LecTemperatura mutexTemp: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexTemp);  
 
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t3_LecTemperatura: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
+
 }
+
 void t4_Comm(void)
 {
+#if PRINT_TIME
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	pthread_mutex_lock(&mutexTemp);
+#if PRINT_TIME_MUTEX_TCOMM
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	printf("\n¡temperatura! %d",temperatura);
+#if PRINT_TIME_MUTEX_TCOMM
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Comm mutexTemp: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexTemp);  
 	
 	
 	pthread_mutex_lock(&mutexPot);
+#if PRINT_TIME_MUTEX_TCOMM
+	//struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	printf("\n¡pot_ADC! %d",pot_ADC);
+#if PRINT_TIME_MUTEX_TCOMM
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Comm mutexPot: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexPot); 
 	
 	pthread_mutex_lock(&mutexLuz);
+#if PRINT_TIME_MUTEX_TCOMM
+	//struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	printf("\n¡LUZ! %d",luz_ADC);
+#if PRINT_TIME_MUTEX_TCOMM
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Comm mutexLuz: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexLuz); 
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t4_Comm: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 
 }
 
 void t5_Riesgo(void)
 {
-    
+#if PRINT_TIME
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif    
 	pthread_mutex_lock(&mutexTemp);
-
-		//printf("\n¡temperatura! %d",temperatura);
+#if PRINT_TIME_MUTEX_TRIESGO
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	if(temperatura>200)
 	{
 	   	peligro_temp=TRUE;
@@ -146,12 +242,18 @@ void t5_Riesgo(void)
 	{
 	   peligro_temp=FALSE;
 	}
+#if PRINT_TIME_MUTEX_TRIESGO
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Riesgo mutexTemp: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexTemp);  
 	
 	
 	pthread_mutex_lock(&mutexPot);
-
-		//printf("\n¡ADC! %d",pot_ADC);
+#if PRINT_TIME_MUTEX_TRIESGO
+	//struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	if(pot_ADC>300)
 	{
 	   	peligro_pot=TRUE;
@@ -160,13 +262,18 @@ void t5_Riesgo(void)
 	{
 	   	peligro_pot=FALSE;
 	}
+#if PRINT_TIME_MUTEX_TRIESGO
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Riesgo mutexPot: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexPot); 
 	
 	pthread_mutex_lock(&mutexLuz);
 
-		//printf("\n¡LUZ! %d",luz_ADC);
-
-
+#if PRINT_TIME_MUTEX_TRIESGO
+	//struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 	if(luz_ADC>520)
 	{
 	   	peligro_luz=TRUE;
@@ -175,6 +282,10 @@ void t5_Riesgo(void)
 	{
 	   	peligro_luz=FALSE;
 	}
+#if PRINT_TIME_MUTEX_TRIESGO
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Riesgo mutexLuz: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
 	pthread_mutex_unlock(&mutexLuz); 
 	
 	
@@ -184,6 +295,13 @@ void t5_Riesgo(void)
 		printf("\n¡PELIGRO LUZ!");
 	if(peligro_pot==1)
 		printf("\n ¡PELIGRO POT!"); 
+
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t5_Riesgo: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
+
+
 }
 
 /* -------------------- */
