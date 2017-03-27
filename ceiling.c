@@ -301,10 +301,10 @@ void t5_Riesgo(void)
 	struct timespec ts1, ts2;
 	clock_gettime( CLOCK_REALTIME, &ts1 );
 #endif
-	if(temp_ADC>200)
+	if( temp_ADC>200 || temp_ADC<75)
 	{
 	   	peligro_temp=TRUE;
-		
+
 	}
 	else
 	{
@@ -342,7 +342,7 @@ void t5_Riesgo(void)
 	//struct timespec ts1, ts2;
 	clock_gettime( CLOCK_REALTIME, &ts1 );
 #endif
-	if(luz_ADC>520)
+	if(luz_ADC<200)
 	{
 	   	peligro_luz=TRUE;
 	}
