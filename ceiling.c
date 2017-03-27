@@ -17,11 +17,14 @@
 static pthread_mutex_t mutexLuz;
 static pthread_mutex_t mutexPot;
 static pthread_mutex_t mutexTemp;
+static pthread_mutex_t mutexColision;
 
 //consignas de sensores
 int luz_ADC; 	//lectura del sensor de luz
 int pot_ADC;	//lectura del sensor de humedad
 int temp_ADC;	//ectura del sensor de temperatura de motor
+
+int colision;
 //consignas de navegacion
 // suponemos que va a seguir recto
 
@@ -42,11 +45,14 @@ int peligro_luz;
 #define PRINT_TIME_MUTEX_TCOMM 	 0
 #define PRINT_TIME_MUTEX_TRIESGO 0
 
-//#define PERIOD_LUZ	30000	
-//#define PERIOD_TEMP
-//#define PERIOD_POTEN
-//#define PERIOD_RIESGO
-//#define PERIOD_COMM
+#define TIME_SCALER		100
+#define PERIOD_LUZ		TIME_SCALER * 300
+#define PERIOD_TEMP		TIME_SCALER * 1000
+#define PERIOD_POTEN	TIME_SCALER * 500
+#define PERIOD_RIESGO	TIME_SCALER * 1000
+#define PERIOD_COMM		TIME_SCALER * 3000
+
+#define BUTTON_PIN 3
 
 /* periodic threads */
 
@@ -54,7 +60,7 @@ void *thread_LUZ(void *param)
 {
   struct periodic_task *p_d;
 
-  p_d = start_periodic_timer(0, 30000);
+  p_d = start_periodic_timer(0, PERIOD_LUZ);
   while (1) {
     wait_next_activation(p_d);
 	t1_LecFotometro();
@@ -66,7 +72,7 @@ void *thread_POT(void *param)
 {
   struct periodic_task *p_d;
 
-  p_d = start_periodic_timer(0, 5000);
+  p_d = start_periodic_timer(0, PERIOD_POTEN);
   while (1) {
     wait_next_activation(p_d);
     t2_LecPotenciometro();
@@ -77,7 +83,7 @@ void *thread_TEMP(void *param)
 {
   struct periodic_task *p_d;
 
-  p_d = start_periodic_timer(0, 10000);
+  p_d = start_periodic_timer(0, PERIOD_TEMP);
   while (1) {
     wait_next_activation(p_d);
     t3_LecTemperatura();
@@ -87,7 +93,7 @@ void *thread_RIESGO(void *param)
 {
   struct periodic_task *p_d;
 
-  p_d = start_periodic_timer(0, 10000);
+  p_d = start_periodic_timer(0, PERIOD_RIESGO);
   while (1) {
     wait_next_activation(p_d);
     t5_Riesgo();
@@ -98,11 +104,16 @@ void *thread_COMM(void *param)
 {
   struct periodic_task *p_d;
 
-  p_d = start_periodic_timer(0, 3000000);
+  p_d = start_periodic_timer(0, PERIOD_COMM);
   while (1) {
     wait_next_activation(p_d);
     t4_Comm();
   }
+}
+
+void *thread_COLI(void *param)
+{
+    t6_colison();
 }
 
 /* activity of tasks */
@@ -232,6 +243,22 @@ void t4_Comm(void)
 #if PRINT_TIME
 	clock_gettime( CLOCK_REALTIME, &ts2);
 	printf("demora t4_Comm: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif	
+
+	pthread_mutex_lock(&mutexColision);
+#if PRINT_TIME_MUTEX_TCOMM
+	//struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
+	printf("\n¡Colision! %d",colision);
+#if PRINT_TIME_MUTEX_TCOMM
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora Comm mutexColision: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
+	pthread_mutex_unlock(&mutexColision); 
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t4_Comm: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
 #endif
 
 }
@@ -318,32 +345,50 @@ void t5_Riesgo(void)
 
 }
 
-/* -------------------- */
-/* body of main program */
-/* -------------------- */
+void t6_colison ()
+{
+#if PRINT_TIME
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
 
-int main(int argc, char *argv[])
+	pthread_mutex_lock(&mutexColision);
+#if PRINT_TIME_MUTEX_SINGLE
+	struct timespec ts1, ts2;
+	clock_gettime( CLOCK_REALTIME, &ts1 );
+#endif
+	colision=!colision;
+	//printf("\n¡Colision! %d",colision);
+#if PRINT_TIME_MUTEX_SINGLE
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t6_colison mutexColision: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
+	pthread_mutex_unlock(&mutexColision);  
 
+#if PRINT_TIME
+	clock_gettime( CLOCK_REALTIME, &ts2);
+	printf("demora t6_colison : %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
+#endif
+}
+
+
+void miTareaEsporadica (void)
 {
   int err;
   void *returnvalue;
-  pthread_t thread_LUZ_id, thread_POT_id, thread_TEMP_id,thread_RIESGO_id,thread_COMM_id;
-  int prioridad_min;
-  int p_luz=0;
-  int p_comm=0;
-  int p_temp=3;
-  int p_pot=3;
-  int p_riesgo=5;
-
-  pthread_attr_t attrs;
   struct sched_param sp;
-
+  int p_coli=0;
+  pthread_attr_t attrs;
   pthread_mutexattr_t mymutexattr;
+  pthread_t thread_COLI_id;
+  int prioridad_min;
+  
+  prioridad_min = sched_get_priority_min(SCHED_FIFO);
 
   //-------- init attributes of tasks 
 
-  pthread_attr_init(&attrs);
-	  Inicializar_dispositivos ();
+  pthread_attr_init(&attrs);  
+	  
   err = pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED);
   if (err != 0) {
     perror("setineheritsched");
@@ -354,6 +399,72 @@ int main(int argc, char *argv[])
     perror("setschedpolicy");
   }
 
+
+	//--------  creation and activation of the new thread 
+	sp.sched_priority =  p_coli;
+	err = pthread_attr_setschedparam(&attrs, &sp);
+	if (err != 0) {
+		perror("setschedparam");
+	}
+	err = pthread_create(&thread_COLI_id, &attrs, thread_COLI, (void *)NULL);
+	if (err != 0) {
+		fprintf(stderr, "Cannot create thread_COLI");
+	}
+	
+	
+	pthread_join(thread_COLI_id, &returnvalue);
+}
+
+
+/* -------------------- */
+/* body of main program */
+/* -------------------- */
+
+int main(int argc, char *argv[])
+
+{
+  int err;
+  void *returnvalue;
+  pthread_t thread_LUZ_id, thread_POT_id, thread_TEMP_id, thread_RIESGO_id, thread_COMM_id;
+  int prioridad_min;
+  int p_luz=0;
+  int p_comm=0;
+  int p_coli=0;
+  int p_temp=3;
+  int p_pot=3;
+  int p_riesgo=5;
+  
+  colision=FALSE;
+  
+  struct sched_param sp;
+  pthread_attr_t attrs;
+  pthread_mutexattr_t mymutexattr;
+
+  //-------- init attributes of tasks 
+
+  pthread_attr_init(&attrs);
+	  Inicializar_dispositivos ();
+	  
+	  
+  err = pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED);
+  if (err != 0) {
+    perror("setineheritsched");
+  }
+
+  err = pthread_attr_setschedpolicy(&attrs, SCHED_FIFO);
+  if (err != 0) {
+    perror("setschedpolicy");
+  }
+
+	//registro de la interrupcion
+	  
+	//if (wiringPiISR (BUTTON_PIN, INT_EDGE_FALLING, &miTareaEsporadica) < 0)
+	if (wiringPiISR (BUTTON_PIN, INT_EDGE_BOTH , &miTareaEsporadica) < 0)
+	{
+		fprintf (stderr, "Unable to setup ISR: %s\n", strerror (errno)) ;
+		return 1 ;
+	}
+  
   prioridad_min = sched_get_priority_min(SCHED_FIFO);
   p_luz+=prioridad_min;
   p_temp+=prioridad_min;
@@ -391,9 +502,15 @@ int main(int argc, char *argv[])
   if (pthread_mutex_init (&mutexTemp,&mymutexattr) != 0) {
     perror ("Error in mutex init");
   }
+  //-------- init mutex mutexColision
+  if (pthread_mutex_init (&mutexColision,&mymutexattr) != 0) {
+    perror ("Error in mutex init");
+  }
 
   pthread_mutexattr_destroy(&mymutexattr);
 
+  
+  
   //--------  creation and activation of the new thread 
   sp.sched_priority =  p_comm;
   err = pthread_attr_setschedparam(&attrs, &sp);
