@@ -17,10 +17,18 @@
 static pthread_mutex_t mutexLuz;
 static pthread_mutex_t mutexPot;
 static pthread_mutex_t mutexTemp;
-static int th_cnt;
-int luz_ADC;
-int pot_ADC;
-int temperatura;
+
+//consignas de sensores
+int luz_ADC; 	//lectura del sensor de luz
+int pot_ADC;	//lectura del sensor de humedad
+int temp_ADC;	//ectura del sensor de temperatura de motor
+//consignas de navegacion
+// suponemos que va a seguir recto
+
+
+//control del motor
+int velocidad_dcho;
+
 int peligro_pot;
 int peligro_temp;
 int peligro_luz;
@@ -32,7 +40,13 @@ int peligro_luz;
 #define PRINT_TIME 0
 #define PRINT_TIME_MUTEX_SINGLE  0
 #define PRINT_TIME_MUTEX_TCOMM 	 0
-#define PRINT_TIME_MUTEX_TRIESGO 1
+#define PRINT_TIME_MUTEX_TRIESGO 0
+
+//#define PERIOD_LUZ	30000	
+//#define PERIOD_TEMP
+//#define PERIOD_POTEN
+//#define PERIOD_RIESGO
+//#define PERIOD_COMM
 
 /* periodic threads */
 
@@ -159,7 +173,7 @@ void t3_LecTemperatura(void)
 	struct timespec ts1, ts2;
 	clock_gettime( CLOCK_REALTIME, &ts1 );
 #endif
-	temperatura=analogRead(2);
+	temp_ADC=analogRead(2);
 #if PRINT_TIME_MUTEX_SINGLE
 	clock_gettime( CLOCK_REALTIME, &ts2);
 	printf("demora LecTemperatura mutexTemp: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
@@ -184,7 +198,7 @@ void t4_Comm(void)
 	struct timespec ts1, ts2;
 	clock_gettime( CLOCK_REALTIME, &ts1 );
 #endif
-	printf("\n¡temperatura! %d",temperatura);
+	printf("\n¡temp_ADC! %d",temp_ADC);
 #if PRINT_TIME_MUTEX_TCOMM
 	clock_gettime( CLOCK_REALTIME, &ts2);
 	printf("demora Comm mutexTemp: %f\n", (float) (1.0 * (1.0 * ts2.tv_nsec - ts1.tv_nsec * 1.0) * 1e-9 + 1.0 * ts2.tv_sec - 1.0 * ts1.tv_sec ));
@@ -233,7 +247,7 @@ void t5_Riesgo(void)
 	struct timespec ts1, ts2;
 	clock_gettime( CLOCK_REALTIME, &ts1 );
 #endif
-	if(temperatura>200)
+	if(temp_ADC>200)
 	{
 	   	peligro_temp=TRUE;
 		
@@ -313,8 +327,8 @@ int main(int argc, char *argv[])
 {
   int err;
   void *returnvalue;
-  pthread_t second_id, third_id, fourth_id,fifth_id,sixth_id;
-  int p_min;
+  pthread_t thread_LUZ_id, thread_POT_id, thread_TEMP_id,thread_RIESGO_id,thread_COMM_id;
+  int prioridad_min;
   int p_luz=0;
   int p_comm=0;
   int p_temp=3;
@@ -340,12 +354,12 @@ int main(int argc, char *argv[])
     perror("setschedpolicy");
   }
 
-  p_min = sched_get_priority_min(SCHED_FIFO);
-  p_luz+=p_min;
-  p_temp+=p_min;
-  p_pot=p_min;
-  p_riesgo+=p_min;
-  p_comm+=p_min;
+  prioridad_min = sched_get_priority_min(SCHED_FIFO);
+  p_luz+=prioridad_min;
+  p_temp+=prioridad_min;
+  p_pot=prioridad_min;
+  p_riesgo+=prioridad_min;
+  p_comm+=prioridad_min;
 
   //-------- creation of mutex 
 
@@ -355,25 +369,25 @@ int main(int argc, char *argv[])
     perror ("Error in mutex attribute setprotocol \n");
   }
 
-  //-------- ceiling priority of mutex 
+  //-------- ceiling priority of mutex attr
 
   if (pthread_mutexattr_setprioceiling (&mymutexattr, p_riesgo) != 0) {
     perror ("Error in mutex attribute setprotocol \n");
   }
 
-  //-------- init mutex 
+  //-------- init mutex mutexLuz
   if (pthread_mutex_init (&mutexLuz,&mymutexattr) != 0) {
     perror ("Error in mutex init");
   }
 
 
-  //-------- init mutex 
+  //-------- init mutex mutexPot
   if (pthread_mutex_init (&mutexPot,&mymutexattr) != 0) {
     perror ("Error in mutex init");
   }
 
 
-  //-------- init mutex 
+  //-------- init mutex mutexTemp
   if (pthread_mutex_init (&mutexTemp,&mymutexattr) != 0) {
     perror ("Error in mutex init");
   }
@@ -386,7 +400,7 @@ int main(int argc, char *argv[])
   if (err != 0) {
     perror("setschedparam");
   }
-  err = pthread_create(&sixth_id, &attrs, thread_COMM, (void *)NULL);
+  err = pthread_create(&thread_COMM_id, &attrs, thread_COMM, (void *)NULL);
   if (err != 0) {
     fprintf(stderr, "Cannot create thread_COMM");
   }
@@ -398,7 +412,7 @@ int main(int argc, char *argv[])
   if (err != 0) {
     perror("setschedparam");
   }
-  err = pthread_create(&second_id, &attrs, thread_LUZ, (void *)NULL);
+  err = pthread_create(&thread_LUZ_id, &attrs, thread_LUZ, (void *)NULL);
   if (err != 0) {
     fprintf(stderr, "Cannot create thread_LUZ");
   }
@@ -409,7 +423,7 @@ int main(int argc, char *argv[])
   if (err != 0) {
     perror("setschedparam");
   }
-  err = pthread_create(&third_id, &attrs, thread_POT, (void *)NULL);
+  err = pthread_create(&thread_POT_id, &attrs, thread_POT, (void *)NULL);
   if (err != 0) {
     fprintf(stderr, "Cannot create thread_POT");
   }
@@ -420,7 +434,7 @@ int main(int argc, char *argv[])
   if (err != 0) {
     perror("setschedparam");
   }
-  err = pthread_create(&fourth_id, &attrs, thread_TEMP, (void *)NULL);
+  err = pthread_create(&thread_TEMP_id, &attrs, thread_TEMP, (void *)NULL);
   if (err != 0) {
     fprintf(stderr, "Cannot create thread_TEMP");
   }
@@ -430,7 +444,7 @@ int main(int argc, char *argv[])
   if (err != 0) {
     perror("setschedparam");
   }
-  err = pthread_create(&fifth_id, &attrs, thread_RIESGO, (void *)NULL);
+  err = pthread_create(&thread_RIESGO_id, &attrs, thread_RIESGO, (void *)NULL);
   if (err != 0) {
     fprintf(stderr, "Cannot create thread_RIESGO");
   }
@@ -438,10 +452,11 @@ int main(int argc, char *argv[])
 
 
   //-------- We wait the end of the threads we just created. 
-  pthread_join(second_id, &returnvalue);
-  pthread_join(third_id, &returnvalue);
-  pthread_join(fourth_id, &returnvalue);
-  pthread_join(fifth_id, &returnvalue);
+  pthread_join(thread_LUZ_id, &returnvalue);
+  pthread_join(thread_POT_id, &returnvalue);
+  pthread_join(thread_TEMP_id, &returnvalue);
+  pthread_join(thread_RIESGO_id, &returnvalue);
+  pthread_join(thread_COMM_id, &returnvalue);
 
 
   printf("main: returnvalue is %d\n", (int)returnvalue);
