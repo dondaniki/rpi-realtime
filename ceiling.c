@@ -681,14 +681,19 @@ int main(int argc, char *argv[])
   void *returnvalue;
   pthread_t thread_LUZ_id, thread_POT_id, thread_TEMP_id, thread_RIESGO_id, thread_COMM_id, thread_NAVEGA_id, thread_MOTOR_id;
   int prioridad_min;
+  //prioridad de las tareas, segun herramienta RTA
   int p_luz=5;
-  int p_pot=5;
-  int p_temp=5;
-  int p_comm=10;
-  int p_riesgo=0;
-  int p_coli=0;
-  int p_navega=0;
+  int p_pot=3;
+  int p_temp=6;
+  int p_comm=4;
+  int p_riesgo=4;
+  int p_coli=2;
+  int p_navega=1;
   int p_motor=0;
+  
+  //prioridad de los mutex, segun herramienta RTA
+  int p_mutex_high=0;
+  int p_mutex_low=1;
   
   colision=FALSE;
   
@@ -721,6 +726,8 @@ int main(int argc, char *argv[])
 		return 1 ;
 	}
   
+  
+  // las prioridades de los threads, cuando se lancen
   prioridad_min = sched_get_priority_min(SCHED_FIFO);
   p_luz+=prioridad_min;  	//t1
   p_pot=prioridad_min;		//t2
@@ -729,6 +736,10 @@ int main(int argc, char *argv[])
   p_riesgo+=prioridad_min;	//t5
   p_navega+=prioridad_min;	//t7
   p_motor+=prioridad_min;	//t8
+  
+  // las prioridades de los mutex, cuando se creen
+  p_mutex_high+=prioridad_min;
+  p_mutex_low+=prioridad_min;
 
   //-------- creation of mutex 
 
@@ -740,7 +751,8 @@ int main(int argc, char *argv[])
 
   //-------- ceiling priority of mutex attr
 
-  if (pthread_mutexattr_setprioceiling (&mymutexattr, p_riesgo) != 0) {
+  //fijamos la prioridad más baja ( segun RTA )
+  if (pthread_mutexattr_setprioceiling (&mymutexattr, p_mutex_low) != 0) {
     perror ("Error in mutex attribute setprotocol \n");
   }
 
@@ -760,6 +772,12 @@ int main(int argc, char *argv[])
   if (pthread_mutex_init (&mutexTemp,&mymutexattr) != 0) {
     perror ("Error in mutex init");
   }
+  
+  //fijamos la prioridad más alta ( segun RTA )
+  if (pthread_mutexattr_setprioceiling (&mymutexattr, p_mutex_high) != 0) {
+    perror ("Error in mutex attribute setprotocol \n");
+  }
+  
   //-------- init mutex mutexColision
   if (pthread_mutex_init (&mutexColision,&mymutexattr) != 0) {
     perror ("Error in mutex init");
